@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowershop-db
+    environment:
+      POSTGRES_DB: flowershop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./src
+      dockerfile: FlowerShop.WebAPI/Dockerfile
+    container_name: flowershop-api
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=flowershop;Username=postgres;Password=postgres
+      - Jwt__Key=FlowerShopDevSecretKey_ChangeMe_InProduction_32chars!
+      - Jwt__Issuer=FlowerShop
+      - Jwt__Audience=FlowerShopClient
+      - Jwt__AccessTokenMinutes=30
+      - Jwt__RefreshTokenDays=7
+      - Cors__Origins__0=http://localhost:5173
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src/FlowerShop.WebAPI/wwwroot:/app/wwwroot
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flowershop-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

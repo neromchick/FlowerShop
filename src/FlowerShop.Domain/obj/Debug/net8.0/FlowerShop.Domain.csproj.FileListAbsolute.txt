@@ -1,0 +1,11 @@
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\bin\Debug\net8.0\FlowerShop.Domain.deps.json
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\bin\Debug\net8.0\FlowerShop.Domain.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\bin\Debug\net8.0\FlowerShop.Domain.pdb
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.AssemblyInfoInputs.cache
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.AssemblyInfo.cs
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.csproj.CoreCompileInputs.cache
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\refint\FlowerShop.Domain.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.pdb
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\ref\FlowerShop.Domain.dll

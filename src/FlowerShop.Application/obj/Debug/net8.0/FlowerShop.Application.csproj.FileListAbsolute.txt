@@ -1,0 +1,15 @@
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\bin\Debug\net8.0\FlowerShop.Application.deps.json
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\bin\Debug\net8.0\FlowerShop.Application.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\bin\Debug\net8.0\FlowerShop.Application.pdb
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\bin\Debug\net8.0\FlowerShop.Domain.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\bin\Debug\net8.0\FlowerShop.Domain.pdb
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.csproj.AssemblyReference.cache
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.AssemblyInfoInputs.cache
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.AssemblyInfo.cs
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.csproj.CoreCompileInputs.cache
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerSh.09728098.Up2Date
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\refint\FlowerShop.Application.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.pdb
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\ref\FlowerShop.Application.dll
