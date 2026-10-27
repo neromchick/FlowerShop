@@ -63,6 +63,11 @@ export interface CreateOrderRequest {
   customerEmail?: string;
   deliveryAddress: string;
   items: OrderItemRequest[];
+  recipientName?: string;
+  recipientPhone?: string;
+  deliveryDate?: string;
+  greetingCardText?: string;
+  paymentMethod?: string;
 }
 
 export interface OrderItem {
@@ -86,6 +91,11 @@ export interface OrderDetail extends OrderSummary {
   customerPhone: string;
   customerEmail?: string;
   items: OrderItem[];
+  recipientName?: string;
+  recipientPhone?: string;
+  deliveryDate?: string;
+  greetingCardText?: string;
+  paymentMethod?: string;
 }
 
 export type OrderStatus = 'New' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
@@ -144,14 +154,9 @@ export interface UpdateOrderStatusRequest {
 }
 
 export interface AuthResponse {
-  userId: string;
-  fullName: string;
-  email: string;
-  phone?: string;
-  role: string;
   accessToken: string;
-  accessTokenExpires: string;
   refreshToken: string;
+  user: UserProfile;
 }
 
 export interface UserProfile {
@@ -172,6 +177,15 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface GoogleAuthRequest {
+  idToken: string;
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  phone?: string;
 }
 
 export interface RefreshRequest {

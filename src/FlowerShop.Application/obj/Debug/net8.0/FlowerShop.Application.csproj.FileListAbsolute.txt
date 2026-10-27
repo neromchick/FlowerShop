@@ -13,3 +13,4 @@ C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\refint\FlowerShop.Application.dll
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.pdb
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\ref\FlowerShop.Application.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Application\obj\Debug\net8.0\FlowerShop.Application.sourcelink.json

@@ -21,17 +21,23 @@ import type {
   UserProfile,
   RegisterRequest,
   LoginRequest,
+  GoogleAuthRequest,
+  UpdateProfileRequest,
 } from '../types';
 
 export const catalogApi = {
   getCategories: () => api.get<Category[]>('/catalog/categories'),
   getProducts: (query: ProductQuery) => api.get<PagedResult<ProductListItem>>('/catalog/products', { params: query }),
+  getProductById: (id: number) => api.get<ProductListItem>(`/catalog/products/${id}`),
+  getProductsBatch: (ids: number[]) => api.get<ProductListItem[]>('/catalog/products/batch', { params: { ids } }),
 };
 
 export const cartApi = {
   getCart: () => api.get<CartItem[]>('/cart'),
   mergeCart: (items: CartLine[]) => api.post<CartItem[]>('/cart/merge', { items } as MergeCartRequest),
-  clearCart: () => api.post('/cart/clear'),
+  updateItem: (productId: number, quantity: number) => api.put<CartItem[]>(`/cart/items/${productId}`, { quantity }),
+  removeItem: (productId: number) => api.delete<CartItem[]>(`/cart/items/${productId}`),
+  clearCart: () => api.delete('/cart'),
 };
 
 export const orderApi = {
@@ -70,6 +76,8 @@ export const adminOrderApi = {
 export const authApi = {
   register: (request: RegisterRequest) => api.post<AuthResponse>('/auth/register', request),
   login: (request: LoginRequest) => api.post<AuthResponse>('/auth/login', request),
+  googleLogin: (idToken: string) => api.post<AuthResponse>('/auth/google', { idToken } as GoogleAuthRequest),
   refresh: (refreshToken: string) => api.post<AuthResponse>('/auth/refresh', { refreshToken }),
   getProfile: () => api.get<UserProfile>('/auth/me'),
+  updateProfile: (request: UpdateProfileRequest) => api.put<UserProfile>('/auth/profile', request),
 };

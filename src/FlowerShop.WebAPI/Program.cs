@@ -1,12 +1,11 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using FlowerShop.Application;
 using FlowerShop.Infrastructure;
-using FlowerShop.Infrastructure.Auth;
 using FlowerShop.Infrastructure.Persistence;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<FlowerShop.Application.Validators.RegisterRequestValidator>();
 
@@ -70,7 +74,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Initialize database schema and seed data
+// Инициализация схемы БД через Dapper и сидирование начальных данных
 using (var scope = app.Services.CreateScope())
 {
     await DbInitializer.InitializeAsync(app.Services);

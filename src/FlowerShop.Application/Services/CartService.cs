@@ -1,68 +1,33 @@
 using FlowerShop.Application.DTOs;
 using FlowerShop.Application.Interfaces;
-using FlowerShop.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
+using FlowerShop.Application.Interfaces.Repositories;
 
 namespace FlowerShop.Application.Services;
 
-public class CartService(IApplicationDbContext db) : ICartService
+public class CartService(ICartRepository cartRepository) : ICartService
 {
     public async Task<IReadOnlyList<CartItemDto>> GetCartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await db.CartItems
-            .AsNoTracking()
-            .Where(c => c.UserId == userId)
-            .Select(c => new CartItemDto(
-                c.ProductId,
-                c.Product.Title,
-                c.Product.Price,
-                c.Quantity,
-                c.Product.StockQuantity,
-                c.Product.ImageUrl))
-            .ToListAsync(cancellationToken);
+        return await cartRepository.GetCartAsync(userId, cancellationToken);
     }
 
     public async Task MergeCartAsync(Guid userId, MergeCartRequest request, CancellationToken cancellationToken = default)
     {
-        var incoming = request.Items
-            .GroupBy(i => i.ProductId)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+        await cartRepository.MergeCartAsync(userId, request.Items, cancellationToken);
+    }
 
-        if (incoming.Count == 0)
-            return;
+    public async Task SetItemQuantityAsync(Guid userId, int productId, int quantity, CancellationToken cancellationToken = default)
+    {
+        await cartRepository.SetItemQuantityAsync(userId, productId, quantity, cancellationToken);
+    }
 
-        var existing = await db.CartItems
-            .Where(c => c.UserId == userId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var line in incoming)
-        {
-            var item = existing.FirstOrDefault(e => e.ProductId == line.Key);
-            if (item is null)
-            {
-                db.CartItems.Add(new CartItem
-                {
-                    UserId = userId,
-                    ProductId = line.Key,
-                    Quantity = line.Value
-                });
-            }
-            else
-            {
-                item.Quantity += line.Value;
-            }
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
+    public async Task RemoveItemAsync(Guid userId, int productId, CancellationToken cancellationToken = default)
+    {
+        await cartRepository.RemoveItemAsync(userId, productId, cancellationToken);
     }
 
     public async Task ClearCartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var items = await db.CartItems.Where(c => c.UserId == userId).ToListAsync(cancellationToken);
-        if (items.Count == 0)
-            return;
-
-        db.CartItems.RemoveRange(items);
-        await db.SaveChangesAsync(cancellationToken);
+        await cartRepository.ClearCartAsync(userId, cancellationToken);
     }
 }

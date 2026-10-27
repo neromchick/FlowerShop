@@ -9,3 +9,4 @@ C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\refint\FlowerShop.Domain.dll
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.pdb
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\ref\FlowerShop.Domain.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Domain\obj\Debug\net8.0\FlowerShop.Domain.sourcelink.json

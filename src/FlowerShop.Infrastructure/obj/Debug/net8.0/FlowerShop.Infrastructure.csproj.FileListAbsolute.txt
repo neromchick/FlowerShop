@@ -1,5 +1,4 @@
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\bin\Debug\net8.0\FlowerShop.Infrastructure.deps.json
-C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\bin\Debug\net8.0\FlowerShop.Infrastructure.runtimeconfig.json
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\bin\Debug\net8.0\FlowerShop.Infrastructure.dll
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\bin\Debug\net8.0\FlowerShop.Infrastructure.pdb
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\bin\Debug\net8.0\FlowerShop.Application.dll
@@ -15,5 +14,5 @@ C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Deb
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\FlowerShop.Infrastructure.dll
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\refint\FlowerShop.Infrastructure.dll
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\FlowerShop.Infrastructure.pdb
-C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\FlowerShop.Infrastructure.genruntimeconfig.cache
 C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\ref\FlowerShop.Infrastructure.dll
+C:\Data\Study\СУБД\Курсач\Cursor\src\FlowerShop.Infrastructure\obj\Debug\net8.0\FlowerShop.Infrastructure.sourcelink.json

@@ -3,14 +3,21 @@ using FlowerShop.Domain.Enums;
 namespace FlowerShop.Application.DTOs;
 
 public record CreateOrderItemRequest(int ProductId, int Quantity);
+
 public record CreateOrderRequest(
     string CustomerName,
     string CustomerPhone,
     string? CustomerEmail,
     string DeliveryAddress,
-    IReadOnlyList<CreateOrderItemRequest> Items);
+    IReadOnlyList<CreateOrderItemRequest> Items,
+    string? RecipientName = null,
+    string? RecipientPhone = null,
+    DateTime? DeliveryDate = null,
+    string? GreetingCardText = null,
+    string? PaymentMethod = null);
 
 public record OrderItemDto(string ProductTitleSnapshot, int Quantity, decimal UnitPrice, decimal LineTotal);
+
 public record OrderSummaryDto(
     int Id,
     DateTime OrderDate,
@@ -18,6 +25,7 @@ public record OrderSummaryDto(
     decimal TotalAmount,
     string CustomerName,
     string DeliveryAddress);
+
 public record OrderDetailDto(
     int Id,
     DateTime OrderDate,
@@ -27,7 +35,12 @@ public record OrderDetailDto(
     string CustomerPhone,
     string? CustomerEmail,
     string DeliveryAddress,
-    IReadOnlyList<OrderItemDto> Items);
+    IReadOnlyList<OrderItemDto> Items,
+    string? RecipientName = null,
+    string? RecipientPhone = null,
+    DateTime? DeliveryDate = null,
+    string? GreetingCardText = null,
+    string? PaymentMethod = null);
 
 public record AdminOrderQuery(
     OrderStatus? Status,

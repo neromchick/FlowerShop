@@ -1,10 +1,11 @@
 using FlowerShop.Application.Interfaces;
+using FlowerShop.Application.Interfaces.Repositories;
+using FlowerShop.Domain.Entities;
 using FlowerShop.Infrastructure.Auth;
-using FlowerShop.Infrastructure.Identity;
 using FlowerShop.Infrastructure.Persistence;
+using FlowerShop.Infrastructure.Persistence.Repositories;
 using FlowerShop.Infrastructure.Storage;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,23 +15,27 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+        // Контекст соединений Dapper над Npgsql
+        services.AddSingleton<DapperContext>();
+        services.AddSingleton<IDapperContext>(sp => sp.GetRequiredService<DapperContext>());
 
-        services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+        // Репозитории доступа к данным (Controller -> Service -> Repository)
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<ICartRepository, CartRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
-        services.AddIdentity<AppUser, IdentityRole<Guid>>(options =>
-            {
-                options.Password.RequiredLength = 6;
-                options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequireUppercase = false;
-                options.User.RequireUniqueEmail = true;
-            })
-            .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddDefaultTokenProviders();
+        // Хеширование паролей пользователей (PBKDF2)
+        services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
+        // Сервисы авторизации и токенов JWT
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<AuthService>();
+
+        // Локальное файловое хранилище изображений
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
         return services;

@@ -14,6 +14,13 @@ public class Order
     public OrderStatus Status { get; set; }
     public decimal TotalAmount { get; set; }
 
+    // Поля специфики интернет-магазина цветов (в полном соответствии с ER-диаграммой):
+    public string? RecipientName { get; set; }
+    public string? RecipientPhone { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public string? GreetingCardText { get; set; }
+    public string? PaymentMethod { get; set; }
+
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
     public ICollection<OrderStatusLog> StatusLogs { get; set; } = new List<OrderStatusLog>();
 }

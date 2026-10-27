@@ -1,10 +1,10 @@
+using Dapper;
 using FlowerShop.Domain.Entities;
 using FlowerShop.Infrastructure.Auth;
-using FlowerShop.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace FlowerShop.Infrastructure.Persistence;
 
@@ -13,128 +13,21 @@ public static class DbInitializer
     public static async Task InitializeAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
+        var dapper = scope.ServiceProvider.GetRequiredService<DapperContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<DapperContext>>();
 
-        // Create tables if not exist (bypass migrations)
-        await EnsureSchemaCreatedAsync(db);
+        using var connection = dapper.CreateNpgsqlConnection();
+        await connection.OpenAsync();
 
-        if (!await db.BusinessRoles.AnyAsync())
-        {
-            db.BusinessRoles.AddRange(
-                new Role { Name = RoleNames.Customer },
-                new Role { Name = RoleNames.Admin });
-            await db.SaveChangesAsync();
-        }
-
-        foreach (var roleName in new[] { RoleNames.Customer, RoleNames.Admin })
-        {
-            if (!await roleManager.RoleExistsAsync(roleName))
-                await roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
-        }
-
-        var adminRole = await db.BusinessRoles.FirstAsync(r => r.Name == RoleNames.Admin);
-        if (!await userManager.Users.AnyAsync(u => u.Email == "admin@flowershop.local"))
-        {
-            var admin = new AppUser
-            {
-                Id = Guid.NewGuid(),
-                UserName = "admin@flowershop.local",
-                Email = "admin@flowershop.local",
-                FullName = "Администратор",
-                PhoneNumber = "+79990000000",
-                RoleId = adminRole.Id,
-                CreatedAt = DateTime.UtcNow,
-                EmailConfirmed = true
-            };
-            await userManager.CreateAsync(admin, "Admin123!");
-            await userManager.AddToRoleAsync(admin, RoleNames.Admin);
-        }
-
-        if (!await db.Categories.AnyAsync())
-        {
-            var categories = new[]
-            {
-                new Category { Name = "Букеты", IsActive = true },
-                new Category { Name = "Комнатные растения", IsActive = true },
-                new Category { Name = "Подарочные наборы", IsActive = true }
-            };
-            db.Categories.AddRange(categories);
-            await db.SaveChangesAsync();
-
-            var now = DateTime.UtcNow;
-            db.Products.AddRange(
-                new Product
-                {
-                    Title = "Букет «Весенний»",
-                    Price = 2490,
-                    StockQuantity = 15,
-                    Description = "Тюльпаны и эустома в нежной упаковке.",
-                    CategoryId = categories[0].Id,
-                    IsActive = true,
-                    CreatedAt = now,
-                    UpdatedAt = now
-                },
-                new Product
-                {
-                    Title = "Букет «Классика»",
-                    Price = 3190,
-                    StockQuantity = 10,
-                    Description = "25 красных роз, лента, открытка.",
-                    CategoryId = categories[0].Id,
-                    IsActive = true,
-                    CreatedAt = now.AddMinutes(-5),
-                    UpdatedAt = now.AddMinutes(-5)
-                },
-                new Product
-                {
-                    Title = "Монстера Deliciosa",
-                    Price = 1890,
-                    StockQuantity = 8,
-                    Description = "Комнатное растение в декоративном горшке.",
-                    CategoryId = categories[1].Id,
-                    IsActive = true,
-                    CreatedAt = now.AddMinutes(-10),
-                    UpdatedAt = now.AddMinutes(-10)
-                },
-                new Product
-                {
-                    Title = "Набор «Чай и цветы»",
-                    Price = 2790,
-                    StockQuantity = 12,
-                    Description = "Мини-букет и набор элитного чая.",
-                    CategoryId = categories[2].Id,
-                    IsActive = true,
-                    CreatedAt = now.AddMinutes(-15),
-                    UpdatedAt = now.AddMinutes(-15)
-                });
-            await db.SaveChangesAsync();
-            logger.LogInformation("База данных заполнена начальными данными.");
-        }
+        await EnsureSchemaCreatedAsync(connection, logger);
+        await SeedInitialDataAsync(connection, passwordHasher, logger);
     }
 
-    private static async Task EnsureSchemaCreatedAsync(ApplicationDbContext db)
+    private static async Task EnsureSchemaCreatedAsync(NpgsqlConnection connection, ILogger logger)
     {
-        // Check if tables exist using ExecuteSqlRaw
-        var connection = db.Database.GetDbConnection();
-        await connection.OpenAsync();
-        try
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Roles' LIMIT 1";
-            var result = await command.ExecuteScalarAsync();
-            if (result != null && result != DBNull.Value) return; // Schema already exists
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-
-        // Create schema using raw SQL
-        var sql = @"
--- Business Roles
+        const string ddl = @"
+-- 1. Roles (Единственная таблица ролей)
 CREATE TABLE IF NOT EXISTS ""Roles"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""Name"" character varying(50) NOT NULL,
@@ -142,103 +35,37 @@ CREATE TABLE IF NOT EXISTS ""Roles"" (
     CONSTRAINT ""AK_Roles_Name"" UNIQUE (""Name"")
 );
 
--- Users (Identity + custom fields)
-CREATE TABLE IF NOT EXISTS ""AspNetUsers"" (
+-- 2. Users (Чистая таблица пользователей)
+CREATE TABLE IF NOT EXISTS ""Users"" (
     ""Id"" uuid NOT NULL,
-    ""UserName"" character varying(256),
-    ""NormalizedUserName"" character varying(256),
-    ""Email"" character varying(256),
-    ""NormalizedEmail"" character varying(256),
-    ""EmailConfirmed"" boolean NOT NULL,
-    ""PasswordHash"" text,
-    ""SecurityStamp"" text,
-    ""ConcurrencyStamp"" text,
-    ""PhoneNumber"" text,
-    ""PhoneNumberConfirmed"" boolean NOT NULL,
-    ""TwoFactorEnabled"" boolean NOT NULL,
-    ""LockoutEnd"" timestamp with time zone,
-    ""LockoutEnabled"" boolean NOT NULL,
-    ""AccessFailedCount"" integer NOT NULL,
     ""FullName"" character varying(200) NOT NULL,
+    ""Email"" character varying(256) NOT NULL,
+    ""PasswordHash"" text,
+    ""PhoneNumber"" character varying(30),
     ""RoleId"" integer NOT NULL,
-    ""CreatedAt"" timestamp with time zone NOT NULL,
-    CONSTRAINT ""PK_AspNetUsers"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_AspNetUsers_Roles_RoleId"" FOREIGN KEY (""RoleId"") REFERENCES ""Roles"" (""Id"") ON DELETE RESTRICT
+    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT ""PK_Users"" PRIMARY KEY (""Id""),
+    CONSTRAINT ""AK_Users_Email"" UNIQUE (""Email""),
+    CONSTRAINT ""FK_Users_Roles_RoleId"" FOREIGN KEY (""RoleId"") REFERENCES ""Roles"" (""Id"") ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS ""IX_Users_RoleId"" ON ""Users"" (""RoleId"");
+
+DO $$
+BEGIN
+    ALTER TABLE ""Users"" ALTER COLUMN ""PasswordHash"" DROP NOT NULL;
+EXCEPTION
+    WHEN others THEN NULL;
+END $$;
+
+-- 3. OrderStatuses (Таблица-справочник статусов заказов согласно ER-диаграмме)
+CREATE TABLE IF NOT EXISTS ""OrderStatuses"" (
+    ""Id"" integer NOT NULL,
+    ""Name"" character varying(50) NOT NULL,
+    CONSTRAINT ""PK_OrderStatuses"" PRIMARY KEY (""Id""),
+    CONSTRAINT ""AK_OrderStatuses_Name"" UNIQUE (""Name"")
 );
 
-CREATE INDEX IF NOT EXISTS ""IX_AspNetUsers_RoleId"" ON ""AspNetUsers"" (""RoleId"");
-CREATE UNIQUE INDEX IF NOT EXISTS ""UserNameIndex"" ON ""AspNetUsers"" (""NormalizedUserName"");
-CREATE INDEX IF NOT EXISTS ""EmailIndex"" ON ""AspNetUsers"" (""NormalizedEmail"");
-
--- Identity Roles
-CREATE TABLE IF NOT EXISTS ""AspNetRoles"" (
-    ""Id"" uuid NOT NULL,
-    ""Name"" character varying(256),
-    ""NormalizedName"" character varying(256),
-    ""ConcurrencyStamp"" text,
-    CONSTRAINT ""PK_AspNetRoles"" PRIMARY KEY (""Id"")
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS ""RoleNameIndex"" ON ""AspNetRoles"" (""NormalizedName"");
-
--- Identity UserRoles
-CREATE TABLE IF NOT EXISTS ""AspNetUserRoles"" (
-    ""UserId"" uuid NOT NULL,
-    ""RoleId"" uuid NOT NULL,
-    CONSTRAINT ""PK_AspNetUserRoles"" PRIMARY KEY (""UserId"", ""RoleId""),
-    CONSTRAINT ""FK_AspNetUserRoles_AspNetRoles_RoleId"" FOREIGN KEY (""RoleId"") REFERENCES ""AspNetRoles"" (""Id"") ON DELETE CASCADE,
-    CONSTRAINT ""FK_AspNetUserRoles_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS ""IX_AspNetUserRoles_RoleId"" ON ""AspNetUserRoles"" (""RoleId"");
-
--- Identity UserClaims
-CREATE TABLE IF NOT EXISTS ""AspNetUserClaims"" (
-    ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
-    ""UserId"" uuid NOT NULL,
-    ""ClaimType"" text,
-    ""ClaimValue"" text,
-    CONSTRAINT ""PK_AspNetUserClaims"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_AspNetUserClaims_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS ""IX_AspNetUserClaims_UserId"" ON ""AspNetUserClaims"" (""UserId"");
-
--- Identity UserLogins
-CREATE TABLE IF NOT EXISTS ""AspNetUserLogins"" (
-    ""LoginProvider"" text NOT NULL,
-    ""ProviderKey"" text NOT NULL,
-    ""ProviderDisplayName"" text,
-    ""UserId"" uuid NOT NULL,
-    CONSTRAINT ""PK_AspNetUserLogins"" PRIMARY KEY (""LoginProvider"", ""ProviderKey""),
-    CONSTRAINT ""FK_AspNetUserLogins_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS ""IX_AspNetUserLogins_UserId"" ON ""AspNetUserLogins"" (""UserId"");
-
--- Identity UserTokens
-CREATE TABLE IF NOT EXISTS ""AspNetUserTokens"" (
-    ""UserId"" uuid NOT NULL,
-    ""LoginProvider"" text NOT NULL,
-    ""Name"" text NOT NULL,
-    ""Value"" text,
-    CONSTRAINT ""PK_AspNetUserTokens"" PRIMARY KEY (""UserId"", ""LoginProvider"", ""Name""),
-    CONSTRAINT ""FK_AspNetUserTokens_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE
-);
-
--- Identity RoleClaims
-CREATE TABLE IF NOT EXISTS ""AspNetRoleClaims"" (
-    ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
-    ""RoleId"" uuid NOT NULL,
-    ""ClaimType"" text,
-    ""ClaimValue"" text,
-    CONSTRAINT ""PK_AspNetRoleClaims"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_AspNetRoleClaims_AspNetRoles_RoleId"" FOREIGN KEY (""RoleId"") REFERENCES ""AspNetRoles"" (""Id"") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS ""IX_AspNetRoleClaims_RoleId"" ON ""AspNetRoleClaims"" (""RoleId"");
-
--- Categories
+-- 4. Categories
 CREATE TABLE IF NOT EXISTS ""Categories"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""Name"" character varying(100) NOT NULL,
@@ -247,7 +74,7 @@ CREATE TABLE IF NOT EXISTS ""Categories"" (
     CONSTRAINT ""AK_Categories_Name"" UNIQUE (""Name"")
 );
 
--- Products
+-- 5. Products (с ограничениями CHECK на цену и складской остаток)
 CREATE TABLE IF NOT EXISTS ""Products"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""Title"" character varying(200) NOT NULL,
@@ -257,15 +84,16 @@ CREATE TABLE IF NOT EXISTS ""Products"" (
     ""ImageUrl"" text,
     ""CategoryId"" integer NOT NULL,
     ""IsActive"" boolean NOT NULL DEFAULT true,
-    ""CreatedAt"" timestamp with time zone NOT NULL,
-    ""UpdatedAt"" timestamp with time zone NOT NULL,
+    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+    ""UpdatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT ""PK_Products"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_Products_Categories_CategoryId"" FOREIGN KEY (""CategoryId"") REFERENCES ""Categories"" (""Id"") ON DELETE RESTRICT
+    CONSTRAINT ""FK_Products_Categories_CategoryId"" FOREIGN KEY (""CategoryId"") REFERENCES ""Categories"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""CK_Products_Price"" CHECK (""Price"" >= 0),
+    CONSTRAINT ""CK_Products_StockQuantity"" CHECK (""StockQuantity"" >= 0)
 );
-
 CREATE INDEX IF NOT EXISTS ""IX_Products_CategoryId"" ON ""Products"" (""CategoryId"");
 
--- Orders
+-- 6. Orders (со статусом, спецификой магазина цветов и проверкой CHECK)
 CREATE TABLE IF NOT EXISTS ""Orders"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""UserId"" uuid,
@@ -273,16 +101,23 @@ CREATE TABLE IF NOT EXISTS ""Orders"" (
     ""CustomerPhone"" character varying(30) NOT NULL,
     ""CustomerEmail"" character varying(256),
     ""DeliveryAddress"" character varying(500) NOT NULL,
-    ""OrderDate"" timestamp with time zone NOT NULL,
+    ""OrderDate"" timestamp with time zone NOT NULL DEFAULT now(),
     ""Status"" integer NOT NULL,
     ""TotalAmount"" numeric(18,2) NOT NULL,
+    ""RecipientName"" character varying(200),
+    ""RecipientPhone"" character varying(30),
+    ""DeliveryDate"" timestamp with time zone,
+    ""GreetingCardText"" text,
+    ""PaymentMethod"" character varying(50),
     CONSTRAINT ""PK_Orders"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_Orders_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE SET NULL
+    CONSTRAINT ""FK_Orders_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE SET NULL,
+    CONSTRAINT ""FK_Orders_OrderStatuses_Status"" FOREIGN KEY (""Status"") REFERENCES ""OrderStatuses"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""CK_Orders_TotalAmount"" CHECK (""TotalAmount"" >= 0)
 );
-
 CREATE INDEX IF NOT EXISTS ""IX_Orders_UserId"" ON ""Orders"" (""UserId"");
+CREATE INDEX IF NOT EXISTS ""IX_Orders_Status"" ON ""Orders"" (""Status"");
 
--- OrderItems
+-- 7. OrderItems (с историческим снимком названия и ограничениями CHECK)
 CREATE TABLE IF NOT EXISTS ""OrderItems"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""OrderId"" integer NOT NULL,
@@ -292,57 +127,179 @@ CREATE TABLE IF NOT EXISTS ""OrderItems"" (
     ""UnitPrice"" numeric(18,2) NOT NULL,
     CONSTRAINT ""PK_OrderItems"" PRIMARY KEY (""Id""),
     CONSTRAINT ""FK_OrderItems_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE,
-    CONSTRAINT ""FK_OrderItems_Products_ProductId"" FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT
+    CONSTRAINT ""FK_OrderItems_Products_ProductId"" FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""CK_OrderItems_Quantity"" CHECK (""Quantity"" > 0),
+    CONSTRAINT ""CK_OrderItems_UnitPrice"" CHECK (""UnitPrice"" >= 0)
 );
-
 CREATE INDEX IF NOT EXISTS ""IX_OrderItems_OrderId"" ON ""OrderItems"" (""OrderId"");
 CREATE INDEX IF NOT EXISTS ""IX_OrderItems_ProductId"" ON ""OrderItems"" (""ProductId"");
 
--- CartItems
+-- 8. CartItems (с датой добавления CreatedAt и ограничением CHECK)
 CREATE TABLE IF NOT EXISTS ""CartItems"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""UserId"" uuid NOT NULL,
     ""ProductId"" integer NOT NULL,
     ""Quantity"" integer NOT NULL,
+    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT ""PK_CartItems"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_CartItems_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE,
-    CONSTRAINT ""FK_CartItems_Products_ProductId"" FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE CASCADE
+    CONSTRAINT ""FK_CartItems_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE,
+    CONSTRAINT ""FK_CartItems_Products_ProductId"" FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE CASCADE,
+    CONSTRAINT ""CK_CartItems_Quantity"" CHECK (""Quantity"" > 0)
 );
-
 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CartItems_UserId_ProductId"" ON ""CartItems"" (""UserId"", ""ProductId"");
 
--- RefreshTokens
+-- 9. RefreshTokens (для авторизации по JWT)
 CREATE TABLE IF NOT EXISTS ""RefreshTokens"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""UserId"" uuid NOT NULL,
     ""Token"" character varying(256) NOT NULL,
     ""ExpiresAt"" timestamp with time zone NOT NULL,
-    ""CreatedAt"" timestamp with time zone NOT NULL,
-    ""IsRevoked"" boolean NOT NULL,
+    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+    ""IsRevoked"" boolean NOT NULL DEFAULT false,
     CONSTRAINT ""PK_RefreshTokens"" PRIMARY KEY (""Id""),
-    CONSTRAINT ""FK_RefreshTokens_AspNetUsers_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE CASCADE
+    CONSTRAINT ""FK_RefreshTokens_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
 );
-
 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RefreshTokens_Token"" ON ""RefreshTokens"" (""Token"");
 CREATE INDEX IF NOT EXISTS ""IX_RefreshTokens_UserId"" ON ""RefreshTokens"" (""UserId"");
 
--- OrderStatusLogs
+-- 10. OrderStatusLogs (журнал аудита статусов)
 CREATE TABLE IF NOT EXISTS ""OrderStatusLogs"" (
     ""Id"" integer GENERATED BY DEFAULT AS IDENTITY,
     ""OrderId"" integer NOT NULL,
     ""OldStatus"" integer NOT NULL,
     ""NewStatus"" integer NOT NULL,
     ""ChangedByUserId"" uuid NOT NULL,
-    ""ChangedAt"" timestamp with time zone NOT NULL,
+    ""ChangedAt"" timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT ""PK_OrderStatusLogs"" PRIMARY KEY (""Id""),
     CONSTRAINT ""FK_OrderStatusLogs_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE,
-    CONSTRAINT ""FK_OrderStatusLogs_AspNetUsers_ChangedByUserId"" FOREIGN KEY (""ChangedByUserId"") REFERENCES ""AspNetUsers"" (""Id"") ON DELETE RESTRICT
+    CONSTRAINT ""FK_OrderStatusLogs_Users_ChangedByUserId"" FOREIGN KEY (""ChangedByUserId"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""FK_OrderStatusLogs_OrderStatuses_Old"" FOREIGN KEY (""OldStatus"") REFERENCES ""OrderStatuses"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""FK_OrderStatusLogs_OrderStatuses_New"" FOREIGN KEY (""NewStatus"") REFERENCES ""OrderStatuses"" (""Id"") ON DELETE RESTRICT
 );
-
 CREATE INDEX IF NOT EXISTS ""IX_OrderStatusLogs_OrderId"" ON ""OrderStatusLogs"" (""OrderId"");
 CREATE INDEX IF NOT EXISTS ""IX_OrderStatusLogs_ChangedByUserId"" ON ""OrderStatusLogs"" (""ChangedByUserId"");
 ";
 
-        await db.Database.ExecuteSqlRawAsync(sql);
+        // Исправляем синтаксис внешнего ключа FK_Orders_OrderStatuses_Status если нужно
+        var cleanDdl = ddl.Replace(@"(""Status"" REFERENCES", @"(""Status"") REFERENCES");
+
+        await connection.ExecuteAsync(cleanDdl);
+
+        const string migrateColumnsSql = @"
+            ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""RecipientName"" character varying(200);
+            ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""RecipientPhone"" character varying(30);
+            ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""DeliveryDate"" timestamp with time zone;
+            ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""GreetingCardText"" text;
+            ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""PaymentMethod"" character varying(50);
+            ALTER TABLE ""CartItems"" ADD COLUMN IF NOT EXISTS ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now();
+
+            -- Удаление остатков старых таблиц ASP.NET Identity (если остались от старого тома)
+            ALTER TABLE ""RefreshTokens"" DROP CONSTRAINT IF EXISTS ""FK_RefreshTokens_AspNetUsers_UserId"";
+            ALTER TABLE ""Orders"" DROP CONSTRAINT IF EXISTS ""FK_Orders_AspNetUsers_UserId"";
+            ALTER TABLE ""CartItems"" DROP CONSTRAINT IF EXISTS ""FK_CartItems_AspNetUsers_UserId"";
+            ALTER TABLE ""OrderStatusLogs"" DROP CONSTRAINT IF EXISTS ""FK_OrderStatusLogs_AspNetUsers_ChangedByUserId"";
+
+            DROP TABLE IF EXISTS ""AspNetUserRoles"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetUserClaims"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetUserLogins"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetUserTokens"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetRoleClaims"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetRoles"" CASCADE;
+            DROP TABLE IF EXISTS ""AspNetUsers"" CASCADE;
+        ";
+        await connection.ExecuteAsync(migrateColumnsSql);
+
+        logger.LogInformation("Схема базы данных PostgreSQL успешно создана / обновлена.");
+    }
+
+    private static async Task SeedInitialDataAsync(NpgsqlConnection connection, IPasswordHasher<User> passwordHasher,
+        ILogger logger)
+    {
+        // 1. Статусы заказов
+        const string insertStatusesSql = @"
+            INSERT INTO ""OrderStatuses"" (""Id"", ""Name"") VALUES
+            (0, 'Новый'),
+            (1, 'В обработке'),
+            (2, 'Отправлен'),
+            (3, 'Доставлен'),
+            (4, 'Отменен')
+            ON CONFLICT (""Id"") DO UPDATE SET ""Name"" = EXCLUDED.""Name"";";
+        await connection.ExecuteAsync(insertStatusesSql);
+
+        // 2. Роли пользователей
+        const string insertRolesSql = @"
+            INSERT INTO ""Roles"" (""Name"") VALUES
+            ('Customer'),
+            ('Admin')
+            ON CONFLICT (""Name"") DO NOTHING;";
+        await connection.ExecuteAsync(insertRolesSql);
+
+        // 3. Администратор
+        var adminRoleId =
+            await connection.ExecuteScalarAsync<int>(@"SELECT ""Id"" FROM ""Roles"" WHERE ""Name"" = 'Admin';");
+        var adminExists =
+            await connection.ExecuteScalarAsync<int?>(
+                @"SELECT 1 FROM ""Users"" WHERE ""Email"" = 'admin@flowershop.local' LIMIT 1;");
+
+        if (!adminExists.HasValue)
+        {
+            var adminUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = "admin@flowershop.local",
+                FullName = "Администратор",
+                PhoneNumber = "+375291234567",
+                RoleId = adminRoleId,
+                CreatedAt = DateTime.UtcNow
+            };
+            adminUser.PasswordHash = passwordHasher.HashPassword(adminUser, "Admin123!");
+
+            const string insertAdminSql = @"
+                INSERT INTO ""Users"" (""Id"", ""FullName"", ""Email"", ""PasswordHash"", ""PhoneNumber"", ""RoleId"", ""CreatedAt"")
+                VALUES (@Id, @FullName, @Email, @PasswordHash, @PhoneNumber, @RoleId, @CreatedAt);";
+
+            await connection.ExecuteAsync(insertAdminSql, adminUser);
+            logger.LogInformation("Администратор admin@flowershop.local успешно создан.");
+        }
+
+        // 4. Категории
+        var hasCategories = await connection.ExecuteScalarAsync<int?>(@"SELECT 1 FROM ""Categories"" LIMIT 1;");
+        if (!hasCategories.HasValue)
+        {
+            const string insertCategoriesSql = @"
+                INSERT INTO ""Categories"" (""Name"", ""IsActive"") VALUES
+                ('Букеты', true),
+                ('Комнатные растения', true),
+                ('Подарочные наборы', true);";
+            await connection.ExecuteAsync(insertCategoriesSql);
+        }
+
+        // 5. Продукты
+        var hasProducts = await connection.ExecuteScalarAsync<int?>(@"SELECT 1 FROM ""Products"" LIMIT 1;");
+        if (!hasProducts.HasValue)
+        {
+            var bouquetsId =
+                await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ""Id"" FROM ""Categories"" WHERE ""Name"" = 'Букеты';");
+            var plantsId =
+                await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ""Id"" FROM ""Categories"" WHERE ""Name"" = 'Комнатные растения';");
+            var giftsId =
+                await connection.ExecuteScalarAsync<int>(
+                    @"SELECT ""Id"" FROM ""Categories"" WHERE ""Name"" = 'Подарочные наборы';");
+
+            var now = DateTime.UtcNow;
+            const string insertProductsSql = @"
+                INSERT INTO ""Products"" (""Title"", ""Price"", ""StockQuantity"", ""Description"", ""CategoryId"", ""IsActive"", ""CreatedAt"", ""UpdatedAt"")
+                VALUES 
+                ('Букет «Весенний»', 2490, 15, 'Тюльпаны и эустома в нежной авторской упаковке.', @BouquetsId, true, @Now, @Now),
+                ('Букет «Классика»', 3190, 10, '25 отборных красных роз, атласная лента, открытка в подарок.', @BouquetsId, true, @Now, @Now),
+                ('Монстера Deliciosa', 1890, 8, 'Живое комнатное растение в керамическом кашпо.', @PlantsId, true, @Now, @Now),
+                ('Набор «Праздничный»', 4200, 5, 'Букет роз, премиальный бельгийский шоколад и открытка.', @GiftsId, true, @Now, @Now);";
+
+            await connection.ExecuteAsync(insertProductsSql,
+                new { BouquetsId = bouquetsId, PlantsId = plantsId, GiftsId = giftsId, Now = now });
+            logger.LogInformation("Тестовые товары успешно созданы.");
+        }
     }
 }

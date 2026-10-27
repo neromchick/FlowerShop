@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { AlertCircle } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,20 +27,60 @@ export function LoginPage() {
     }
   };
 
+  const handleGoogleSuccess = async (idToken: string) => {
+    setError('');
+    setLoading(true);
+    try {
+      await googleLogin(idToken);
+      navigate('/');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Ошибка входа через Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="max-w-md mx-auto">
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
-        <h1 className="text-2xl font-bold text-gray-900 text-center mb-6">Вход в аккаунт</h1>
+    <div className="max-w-md mx-auto py-8">
+      <div className="bg-[#F7F7F5] border border-zinc-200/80 rounded-lg p-8 shadow-xs">
+        <div className="text-center mb-6">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-400">
+            Вход в систему
+          </span>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-950 mt-1">
+            Личный кабинет
+          </h1>
+        </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4" role="alert">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-2.5 rounded-md mb-5 flex items-center gap-2" role="alert">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{error}</span>
           </div>
         )}
 
+        {/* Google Sign-in */}
+        <div className="mb-5">
+          <GoogleSignInButton
+            text="signin_with"
+            onSuccess={handleGoogleSuccess}
+            onError={(msg) => setError(msg)}
+          />
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-zinc-200" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase font-mono">
+              <span className="bg-[#F7F7F5] px-3 text-zinc-400">или через email</span>
+            </div>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-xs font-medium text-zinc-700 mb-1">
               Email
             </label>
             <input
@@ -48,12 +90,13 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              placeholder="name@example.com"
+              className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900 transition-all placeholder:text-zinc-400"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-xs font-medium text-zinc-700 mb-1">
               Пароль
             </label>
             <input
@@ -63,21 +106,25 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              placeholder="••••••••"
+              className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900 transition-all placeholder:text-zinc-400"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 text-white bg-pink-600 rounded-lg font-medium hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full h-10 mt-2 text-xs font-medium text-white bg-zinc-900 rounded-md hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Вход...' : 'Войти'}
+            {loading ? 'Вход...' : 'Войти в аккаунт'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Нет аккаунта? <Link to="/register" className="text-pink-600 hover:text-pink-700 font-medium">Зарегистрироваться</Link>
+        <p className="mt-6 text-center text-xs text-zinc-500">
+          Нет аккаунта?{' '}
+          <Link to="/register" className="text-zinc-950 font-medium hover:underline underline-offset-4">
+            Зарегистрироваться
+          </Link>
         </p>
       </div>
     </div>

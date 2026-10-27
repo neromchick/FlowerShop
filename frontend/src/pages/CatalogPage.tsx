@@ -5,11 +5,12 @@ import type { Category, ProductListItem, ProductQuery } from '../types';
 import { ProductCard } from '../components/ProductCard';
 import { Pagination } from '../components/Pagination';
 import { useCart } from '../contexts/CartContext';
+import { Search, X } from 'lucide-react';
 
 const SORT_OPTIONS = [
-  { value: 'newest', label: 'Новинки' },
-  { value: 'price_asc', label: 'Цене: по возрастанию' },
-  { value: 'price_desc', label: 'Цене: по убыванию' },
+  { value: 'newest', label: 'Свежие коллекции' },
+  { value: 'price_asc', label: 'По возрастанию цены' },
+  { value: 'price_desc', label: 'По убыванию цены' },
 ];
 
 export function CatalogPage() {
@@ -20,6 +21,7 @@ export function CatalogPage() {
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const { addItem } = useCart();
 
   const page = parseInt(searchParams.get('page') || '1', 10);
@@ -80,159 +82,163 @@ export function CatalogPage() {
     setSearchParams(params);
   };
 
-  const handleSortChange = (value: string) => {
-    handleFilterChange('sort', value);
-  };
-
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const searchValue = formData.get('search') as string;
-    handleFilterChange('search', searchValue || undefined);
+    handleFilterChange('search', searchInput.trim() || undefined);
   };
 
-  const handleCategoryChange = (id: number | undefined) => {
-    handleFilterChange('categoryId', id);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', String(newPage));
-    setSearchParams(params);
-  };
-
-  const handleAddToCart = (productId: number) => {
-    addItem(productId);
+  const clearSearch = () => {
+    setSearchInput('');
+    handleFilterChange('search', undefined);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Каталог</h1>
-        <form onSubmit={handleSearch} className="flex-1 max-w-md">
-          <div className="relative">
-            <input
-              type="search"
-              name="search"
-              defaultValue={search || ''}
-              placeholder="Поиск по названию..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
-              aria-label="Поиск товаров"
-            />
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+    <div className="space-y-8">
+      {/* Editorial Hero Intro */}
+      <div className="border-b border-zinc-200/80 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Каталог</span>
+            <span className="text-zinc-300">/</span>
+            <span className="font-mono text-xs text-[#2E3A2F]">Сезонная поставка</span>
           </div>
-        </form>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950">
+            Авторские букеты & композиции
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Поиск букета..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="bg-[#F7F7F5] hover:bg-zinc-100 focus:bg-white border border-zinc-200 rounded-md pl-9 pr-8 py-1.5 text-xs font-normal w-48 sm:w-60 focus:outline-none focus:ring-1 focus:ring-zinc-900 transition-all placeholder:text-zinc-400"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="absolute right-2.5 text-zinc-400 hover:text-zinc-700"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </form>
+
+          {/* Sort Selector */}
+          <div className="relative">
+            <select
+              value={sort}
+              onChange={(e) => handleFilterChange('sort', e.target.value)}
+              className="bg-[#F7F7F5] hover:bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-zinc-900 cursor-pointer transition-colors"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <aside className="w-full sm:w-64 flex-shrink-0">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3">Категории</h2>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="category"
-                  checked={!categoryId}
-                  onChange={() => handleCategoryChange(undefined)}
-                  className="text-pink-600 focus:ring-pink-500 h-4 w-4"
-                />
-                <span className="text-sm text-gray-700">Все категории</span>
-              </label>
-              {categories.map((cat) => (
-                <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="category"
-                    checked={categoryId === cat.id}
-                    onChange={() => handleCategoryChange(cat.id)}
-                    className="text-pink-600 focus:ring-pink-500 h-4 w-4"
-                  />
-                  <span className="text-sm text-gray-700 truncate">{cat.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </aside>
+      {/* Category Pills (Horizontal scrollable row) */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        <button
+          onClick={() => handleFilterChange('categoryId', undefined)}
+          className={`px-4 py-1.5 rounded-full text-xs transition-colors shrink-0 ${
+            categoryId === undefined
+              ? 'bg-zinc-900 text-white font-medium'
+              : 'bg-[#F7F7F5] hover:bg-zinc-200 text-zinc-700'
+          }`}
+        >
+          Все букеты
+        </button>
 
-        <section className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <p className="text-sm text-gray-600">
-              Найдено товаров: <span className="font-medium">{totalCount}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <label htmlFor="sort" className="text-sm text-gray-600">Сортировка:</label>
-              <select
-                id="sort"
-                value={sort}
-                onChange={(e) => handleSortChange(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => handleFilterChange('categoryId', cat.id)}
+            className={`px-4 py-1.5 rounded-full text-xs transition-colors shrink-0 ${
+              categoryId === cat.id
+                ? 'bg-zinc-900 text-white font-medium'
+                : 'bg-[#F7F7F5] hover:bg-zinc-200 text-zinc-700'
+            }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4" role="alert">
-              {error}
+      {/* Error notification */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-3 rounded-md" role="alert">
+          {error}
+        </div>
+      )}
+
+      {/* Products Grid */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex flex-col gap-3">
+              <div className="aspect-[4/5] rounded-lg bg-[#F7F7F5] animate-pulse" />
+              <div className="h-4 bg-zinc-100 rounded w-3/4 animate-pulse" />
+              <div className="h-3 bg-zinc-100 rounded w-1/2 animate-pulse" />
             </div>
+          ))}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-20 border border-zinc-200 rounded-lg bg-[#F7F7F5]/50">
+          <p className="text-zinc-600 text-sm font-medium mb-1">Ничего не найдено</p>
+          <p className="text-zinc-400 text-xs font-mono">
+            Попробуйте сбросить фильтры или изменить поисковый запрос
+          </p>
+          {(categoryId !== undefined || search) && (
+            <button
+              onClick={() => {
+                setSearchInput('');
+                setSearchParams(new URLSearchParams());
+              }}
+              className="mt-4 px-4 py-1.5 text-xs text-zinc-900 border border-zinc-300 rounded-md hover:bg-zinc-100 transition-colors"
+            >
+              Сбросить фильтры
+            </button>
           )}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+            <span>НАЙДЕНО: {totalCount} ПОЗИЦИЙ</span>
+            <span>СТРАНИЦА {page} ИЗ {totalPages}</span>
+          </div>
 
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg border border-gray-200 animate-pulse">
-                  <div className="aspect-[4/3] bg-gray-200" />
-                  <div className="p-4 space-y-3">
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                    <div className="h-4 bg-gray-200 rounded w-1/2" />
-                    <div className="h-6 bg-gray-200 rounded w-1/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Товары не найдены</h3>
-              <p className="mt-1 text-sm text-gray-500">Попробуйте изменить фильтры или поисковый запрос.</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={handleAddToCart}
-                    inStock={product.stockQuantity > 0}
-                  />
-                ))}
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddToCart={(prod) => addItem(prod)}
+                inStock={product.stockQuantity > 0}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pt-8 border-t border-zinc-200">
               <Pagination
                 currentPage={page}
                 totalPages={totalPages}
-                onPageChange={handlePageChange}
-                className="mt-6"
+                onPageChange={(p) => handleFilterChange('page', p)}
               />
-            </>
+            </div>
           )}
-        </section>
-      </div>
+        </>
+      )}
     </div>
   );
 }

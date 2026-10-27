@@ -1,56 +1,50 @@
 using FlowerShop.Application.DTOs;
 using FlowerShop.Application.Interfaces;
-using FlowerShop.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
+using FlowerShop.Application.Interfaces.Repositories;
 
 namespace FlowerShop.Application.Services;
 
-public class AdminCategoryService(IApplicationDbContext db) : IAdminCategoryService
+public class AdminCategoryService(ICategoryRepository categoryRepository) : IAdminCategoryService
 {
     public async Task<IReadOnlyList<CategoryDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await db.Categories.AsNoTracking()
-            .OrderBy(c => c.Name)
-            .Select(c => new CategoryDto(c.Id, c.Name, c.IsActive))
-            .ToListAsync(cancellationToken);
+        return await categoryRepository.GetAllCategoriesAsync(cancellationToken);
     }
 
     public async Task<CategoryDto> CreateAsync(CreateCategoryRequest request, CancellationToken cancellationToken = default)
     {
         var name = request.Name.Trim();
-        if (await db.Categories.AnyAsync(c => c.Name == name, cancellationToken))
+
+        if (await categoryRepository.ExistsByNameAsync(name, null, cancellationToken))
             throw new InvalidOperationException("Категория с таким названием уже существует.");
 
-        var category = new Category { Name = name, IsActive = true };
-        db.Categories.Add(category);
-        await db.SaveChangesAsync(cancellationToken);
-        return new CategoryDto(category.Id, category.Name, category.IsActive);
+        return await categoryRepository.CreateCategoryAsync(name, cancellationToken);
     }
 
     public async Task<CategoryDto> UpdateAsync(int id, UpdateCategoryRequest request, CancellationToken cancellationToken = default)
     {
-        var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+        var name = request.Name.Trim();
+
+        var existing = await categoryRepository.GetCategoryByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException("Категория не найдена.");
 
-        var name = request.Name.Trim();
-        if (await db.Categories.AnyAsync(c => c.Id != id && c.Name == name, cancellationToken))
+        if (await categoryRepository.ExistsByNameAsync(name, id, cancellationToken))
             throw new InvalidOperationException("Категория с таким названием уже существует.");
 
-        category.Name = name;
-        category.IsActive = request.IsActive;
-        await db.SaveChangesAsync(cancellationToken);
-        return new CategoryDto(category.Id, category.Name, category.IsActive);
+        var updated = await categoryRepository.UpdateCategoryAsync(id, name, request.IsActive, cancellationToken);
+        return updated ?? throw new KeyNotFoundException("Категория не найдена.");
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+        var existing = await categoryRepository.GetCategoryByIdAsync(id, cancellationToken)
             ?? throw new KeyNotFoundException("Категория не найдена.");
 
-        if (await db.Products.AnyAsync(p => p.CategoryId == id, cancellationToken))
+        if (await categoryRepository.HasProductsAsync(id, cancellationToken))
             throw new InvalidOperationException("Нельзя удалить категорию, в которой есть товары.");
 
-        db.Categories.Remove(category);
-        await db.SaveChangesAsync(cancellationToken);
+        var deleted = await categoryRepository.DeleteCategoryAsync(id, cancellationToken);
+        if (!deleted)
+            throw new KeyNotFoundException("Категория не найдена.");
     }
 }

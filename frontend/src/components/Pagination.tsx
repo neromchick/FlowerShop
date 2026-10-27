@@ -23,11 +23,12 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        aria-label="Previous page"
+        className="px-3 py-1.5 text-xs font-mono text-zinc-700 bg-[#F7F7F5] border border-zinc-200 rounded-md hover:bg-zinc-200/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        aria-label="Предыдущая страница"
       >
         ← Назад
       </button>
+
       {visiblePages.map((page, index) => {
         const prevPage = visiblePages[index - 1];
         const showEllipsis = prevPage && page - prevPage > 1;
@@ -35,16 +36,16 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
         return (
           <Fragment key={page}>
             {showEllipsis && (
-              <span className="px-2 text-sm text-gray-500">…</span>
+              <span className="px-1 text-xs font-mono text-zinc-400">…</span>
             )}
             <button
               onClick={() => onPageChange(page)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`min-w-[32px] h-8 px-2 text-xs font-mono rounded-md transition-colors ${
                 page === currentPage
-                  ? 'bg-pink-600 text-white'
-                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-zinc-900 text-white font-medium'
+                  : 'text-zinc-700 bg-[#F7F7F5] border border-zinc-200 hover:bg-zinc-200/80'
               }`}
-              aria-label={`Page ${page}`}
+              aria-label={`Страница ${page}`}
               aria-current={page === currentPage ? 'page' : undefined}
             >
               {page}
@@ -52,11 +53,12 @@ export function Pagination({ currentPage, totalPages, onPageChange, className = 
           </Fragment>
         );
       })}
+
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        aria-label="Next page"
+        className="px-3 py-1.5 text-xs font-mono text-zinc-700 bg-[#F7F7F5] border border-zinc-200 rounded-md hover:bg-zinc-200/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        aria-label="Следующая страница"
       >
         Вперёд →
       </button>

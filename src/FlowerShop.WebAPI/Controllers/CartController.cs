@@ -22,6 +22,27 @@ public class CartController(ICartService cartService) : ControllerBase
         return Ok(await cartService.GetCartAsync(GetUserId(), cancellationToken));
     }
 
+    [HttpPut("items/{productId:int}")]
+    public async Task<IActionResult> UpdateItem(int productId, [FromBody] UpdateCartItemRequest request, CancellationToken cancellationToken)
+    {
+        await cartService.SetItemQuantityAsync(GetUserId(), productId, request.Quantity, cancellationToken);
+        return Ok(await cartService.GetCartAsync(GetUserId(), cancellationToken));
+    }
+
+    [HttpDelete("items/{productId:int}")]
+    public async Task<IActionResult> RemoveItem(int productId, CancellationToken cancellationToken)
+    {
+        await cartService.RemoveItemAsync(GetUserId(), productId, cancellationToken);
+        return Ok(await cartService.GetCartAsync(GetUserId(), cancellationToken));
+    }
+
+    [HttpDelete]
+    public async Task<IActionResult> Clear(CancellationToken cancellationToken)
+    {
+        await cartService.ClearCartAsync(GetUserId(), cancellationToken);
+        return NoContent();
+    }
+
     private Guid GetUserId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
 }

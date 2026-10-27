@@ -3,43 +3,92 @@ import { Link } from 'react-router-dom';
 import { orderApi } from '../api';
 import type { OrderSummary, OrderDetail } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { User, Phone, Mail, Edit3, Check, X, Package, Shield, Calendar, MapPin } from 'lucide-react';
 
 const STATUS_LABELS: Record<string, string> = {
   New: 'Новый',
   Processing: 'В обработке',
-  Shipped: 'Отправлен',
+  Shipped: 'В пути',
   Delivered: 'Доставлен',
   Cancelled: 'Отменён',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-blue-100 text-blue-800',
-  Processing: 'bg-yellow-100 text-yellow-800',
-  Shipped: 'bg-purple-100 text-purple-800',
-  Delivered: 'bg-green-100 text-green-800',
-  Cancelled: 'bg-red-100 text-red-800',
+const STATUS_CLASSES: Record<string, string> = {
+  New: 'bg-zinc-100 text-zinc-800 border-zinc-200',
+  Processing: 'bg-amber-50 text-amber-800 border-amber-200',
+  Shipped: 'bg-blue-50 text-blue-800 border-blue-200',
+  Delivered: 'bg-[#2E3A2F]/10 text-[#2E3A2F] border-[#2E3A2F]/20',
+  Cancelled: 'bg-zinc-100 text-zinc-400 border-zinc-200 line-through',
 };
 
 export function ProfilePage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateProfile } = useAuth();
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   useEffect(() => {
     loadOrders();
     refreshUser();
-  }, [refreshUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      setEditFullName(user.fullName || '');
+      setEditPhone(user.phone || '');
+    }
+  }, [user]);
 
   const loadOrders = async () => {
     try {
       const { data } = await orderApi.getMyOrders();
       setOrders(data);
     } catch {
-      setError('Не удалось загрузить заказы');
+      setError('Не удалось загрузить историю заказов');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartEdit = () => {
+    setEditFullName(user?.fullName || '');
+    setEditPhone(user?.phone || '');
+    setIsEditing(true);
+    setSaveSuccess(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFullName.trim()) return;
+
+    setSaveLoading(true);
+    setError(null);
+    try {
+      await updateProfile({
+        fullName: editFullName.trim(),
+        phone: editPhone.trim() || undefined,
+      });
+      setIsEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Ошибка при сохранении профиля');
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -57,181 +106,276 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Личный кабинет</h1>
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <span>{user?.fullName}</span>
-          <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded-full">{user?.role}</span>
+    <div className="space-y-8">
+      {/* Page Title & User Header */}
+      <div className="border-b border-zinc-200/80 pb-6 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-mono text-xs uppercase tracking-widest text-zinc-400">Кабинет</span>
+            <span className="text-zinc-300">/</span>
+            <span className="font-mono text-xs text-[#2E3A2F]">Управление профилем</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950">
+            {user?.fullName || 'Личный профиль'}
+          </h1>
         </div>
+
+        {/* Note: Customer badge is hidden completely per requirement #7. Only Admin badge is shown if user is Admin */}
+        {user?.role === 'Admin' && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-900 text-white rounded-md text-xs font-mono">
+            <Shield className="w-3.5 h-3.5" />
+            <span>Администратор</span>
+          </div>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Профиль</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-500 mb-1">Email</label>
-            <p className="text-gray-900">{user?.email}</p>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-500 mb-1">Телефон</label>
-            <p className="text-gray-900">{user?.phone || 'Не указан'}</p>
-          </div>
+      {saveSuccess && (
+        <div className="bg-[#2E3A2F]/10 border border-[#2E3A2F]/20 text-[#2E3A2F] text-xs px-4 py-2.5 rounded-md flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          <span>Данные профиля успешно обновлены</span>
         </div>
+      )}
+
+      {/* Profile Info Card (with Edit capability) */}
+      <div className="bg-[#F7F7F5] border border-zinc-200/80 rounded-lg p-6">
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-200 mb-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-950 font-mono">
+            Данные клиента
+          </h2>
+
+          {!isEditing && (
+            <button
+              onClick={handleStartEdit}
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-700 hover:text-zinc-950 font-medium px-2.5 py-1 rounded border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Редактировать</span>
+            </button>
+          )}
+        </div>
+
+        {isEditing ? (
+          <form onSubmit={handleSaveProfile} className="space-y-4 max-w-lg">
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">
+                Полное имя
+              </label>
+              <input
+                type="text"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                required
+                className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">
+                Телефон
+              </label>
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+7 (XXX) XXX-XX-XX"
+                className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={saveLoading}
+                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+              >
+                {saveLoading ? 'Сохранение...' : 'Сохранить изменения'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-4 py-2 text-xs text-zinc-600 hover:text-zinc-900 border border-zinc-200 rounded-md bg-white hover:bg-zinc-50 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+            <div className="flex items-start gap-3">
+              <User className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+              <div>
+                <span className="text-zinc-400 font-mono uppercase text-[10px] block">Имя</span>
+                <p className="font-medium text-zinc-950 mt-0.5">{user?.fullName}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Mail className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+              <div>
+                <span className="text-zinc-400 font-mono uppercase text-[10px] block">Email</span>
+                <p className="font-medium text-zinc-950 mt-0.5">{user?.email}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Phone className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+              <div>
+                <span className="text-zinc-400 font-mono uppercase text-[10px] block">Телефон</span>
+                <p className="font-medium text-zinc-950 mt-0.5">{user?.phone || 'Не указан'}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">История заказов</h2>
+      {/* Orders Section */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-950 font-mono">
+          История доставок
+        </h2>
+
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4" role="alert">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-3 rounded-md" role="alert">
             {error}
           </div>
         )}
+
         {loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
-                <div className="flex justify-between">
-                  <div className="h-4 bg-gray-200 rounded w-1/4" />
-                  <div className="h-4 bg-gray-200 rounded w-1/6" />
-                </div>
-              </div>
+          <div className="space-y-3">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-18 bg-[#F7F7F5] rounded-lg animate-pulse" />
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">У вас пока нет заказов</h3>
-            <p className="mt-1 text-gray-500">Когда вы оформите первый заказ, он появится здесь.</p>
-            <Link to="/" className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded-lg hover:bg-pink-700 transition-colors">
+          <div className="text-center py-16 border border-zinc-200 rounded-lg bg-[#F7F7F5]/50 flex flex-col items-center">
+            <Package className="w-8 h-8 text-zinc-300 mb-2 stroke-[1.5]" />
+            <p className="text-sm font-medium text-zinc-800">У вас пока нет оформленных заказов</p>
+            <p className="text-xs font-mono text-zinc-400 mt-1 mb-4">
+              Выберите букет в каталоге, и мы быстро доставим его получателю
+            </p>
+            <Link
+              to="/"
+              className="px-4 py-2 bg-zinc-900 text-white text-xs rounded-md hover:bg-zinc-800 transition-colors"
+            >
               Перейти в каталог
             </Link>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">№ Заказа</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сумма</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Адрес доставки</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 font-mono text-gray-900">#{order.id}</td>
-                    <td className="px-4 py-4 text-gray-700">
-                      {new Date(order.orderDate).toLocaleDateString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[order.status]}`}>
-                        {STATUS_LABELS[order.status] || order.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 font-medium text-gray-900">
-                      {order.totalAmount.toLocaleString('ru-RU')} ₽
-                    </td>
-                    <td className="px-4 py-4 text-gray-600 truncate max-w-xs">{order.deliveryAddress}</td>
-                    <td className="px-4 py-4 text-right">
-                      <button
-                        onClick={() => handleViewOrder(order.id)}
-                        className="text-pink-600 hover:text-pink-700 text-sm font-medium"
-                      >
-                        Подробнее
-                      </button>
-                    </td>
+          <div className="border border-zinc-200 rounded-lg overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-[#F7F7F5] border-b border-zinc-200 text-zinc-500 font-mono uppercase text-[10px]">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Заказ</th>
+                    <th className="px-4 py-3 text-left">Дата</th>
+                    <th className="px-4 py-3 text-left">Статус</th>
+                    <th className="px-4 py-3 text-left">Сумма</th>
+                    <th className="px-4 py-3 text-left">Адрес</th>
+                    <th className="px-4 py-3 text-right"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-200/80">
+                  {orders.map((order) => {
+                    const statusClass = STATUS_CLASSES[order.status] || 'bg-zinc-100 text-zinc-800';
+                    const statusLabel = STATUS_LABELS[order.status] || order.status;
+
+                    return (
+                      <tr key={order.id} className="hover:bg-[#F7F7F5]/60 transition-colors">
+                        <td className="px-4 py-3.5 font-mono font-medium text-zinc-950">
+                          #{order.id}
+                        </td>
+                        <td className="px-4 py-3.5 text-zinc-600 font-mono">
+                          {new Date(order.orderDate).toLocaleDateString('ru-RU', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-mono border ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 font-mono font-semibold text-zinc-950">
+                          {order.totalAmount.toLocaleString('ru-RU')} ₽
+                        </td>
+                        <td className="px-4 py-3.5 text-zinc-600 max-w-[200px] truncate" title={order.deliveryAddress}>
+                          {order.deliveryAddress}
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <button
+                            onClick={() => handleViewOrder(order.id)}
+                            className="text-zinc-600 hover:text-zinc-950 font-medium underline underline-offset-4"
+                          >
+                            Детали
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Order Detail Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/50" onClick={handleCloseModal} aria-hidden="true" />
-            <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-                <h3 id="order-modal-title" className="text-lg font-semibold text-gray-900">Заказ #{selectedOrder.id}</h3>
-                <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600" aria-label="Закрыть">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg border border-zinc-200 max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200">
+              <div>
+                <span className="font-mono text-xs text-zinc-400 uppercase">Спецификация заказа</span>
+                <h3 className="text-base font-semibold text-zinc-950 font-mono">
+                  #{selectedOrder.id} · {STATUS_LABELS[selectedOrder.status] || selectedOrder.status}
+                </h3>
               </div>
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Статус</p>
-                    <p className="font-medium">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[selectedOrder.status]}`}>
-                        {STATUS_LABELS[selectedOrder.status] || selectedOrder.status}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Дата заказа</p>
-                    <p className="font-medium">
-                      {new Date(selectedOrder.orderDate).toLocaleDateString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Имя</p>
-                    <p className="font-medium">{selectedOrder.customerName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Телефон</p>
-                    <p className="font-medium">{selectedOrder.customerPhone}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium">{selectedOrder.customerEmail || 'Не указан'}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-500">Адрес доставки</p>
-                    <p className="font-medium">{selectedOrder.deliveryAddress}</p>
-                  </div>
-                </div>
+              <button
+                onClick={handleCloseModal}
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700"
+                aria-label="Закрыть"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Состав заказа</h4>
-                  <div className="space-y-2">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-                        <div>
-                          <p className="font-medium text-gray-900">{item.productTitleSnapshot}</p>
-                          <p className="text-sm text-gray-500">{item.quantity} × {item.unitPrice.toLocaleString('ru-RU')} ₽</p>
-                        </div>
-                        <span className="font-medium text-gray-900">{item.lineTotal.toLocaleString('ru-RU')} ₽</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between text-lg font-bold">
-                    <span>Итого</span>
-                    <span>{selectedOrder.totalAmount.toLocaleString('ru-RU')} ₽</span>
-                  </div>
-                </div>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center gap-2 text-zinc-600">
+                <MapPin className="w-4 h-4 text-zinc-400 shrink-0" />
+                <span>{selectedOrder.deliveryAddress}</span>
               </div>
+              <div className="flex items-center gap-2 text-zinc-600">
+                <Calendar className="w-4 h-4 text-zinc-400 shrink-0" />
+                <span className="font-mono">
+                  {new Date(selectedOrder.orderDate).toLocaleString('ru-RU')}
+                </span>
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="border border-zinc-200 rounded-md divide-y divide-zinc-200 bg-[#F7F7F5]/50">
+              {selectedOrder.items.map((item, idx) => (
+                <div key={idx} className="p-3 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-medium text-zinc-950 block">{item.productTitleSnapshot}</span>
+                    <span className="font-mono text-zinc-500 text-[11px]">
+                      {item.quantity} шт. × {item.unitPrice.toLocaleString('ru-RU')} ₽
+                    </span>
+                  </div>
+                  <span className="font-mono font-semibold text-zinc-950">
+                    {item.lineTotal.toLocaleString('ru-RU')} ₽
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-between items-baseline border-t border-zinc-200">
+              <span className="text-xs font-semibold text-zinc-950 uppercase font-mono">Итого</span>
+              <span className="text-lg font-bold font-mono text-zinc-950">
+                {selectedOrder.totalAmount.toLocaleString('ru-RU')} ₽
+              </span>
             </div>
           </div>
         </div>
