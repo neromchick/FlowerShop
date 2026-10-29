@@ -38,13 +38,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization();var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
+
+if (origins == null || origins.Length == 0)
+{
+    origins = [
+        "http://localhost:5173",
+        "https://app-flowershop.netlify.app"
+    ];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:5173"])
+        policy.WithOrigins(origins)
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -77,7 +87,7 @@ var app = builder.Build();
 // Инициализация схемы БД через Dapper и сидирование начальных данных
 using (var scope = app.Services.CreateScope())
 {
-    await DbInitializer.InitializeAsync(app.Services);
+    await DbInitializer.InitializeAsync(scope.ServiceProvider);
 }
 
 if (app.Environment.IsDevelopment())
@@ -91,6 +101,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
