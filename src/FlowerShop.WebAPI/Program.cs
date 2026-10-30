@@ -38,23 +38,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
-
-if (origins == null || origins.Length == 0)
-{
-    origins = [
-        "http://localhost:5173",
-        "https://app-flowershop.netlify.app"
-    ];
-}
+builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>
-        policy.WithOrigins(origins)
+    void ConfigurePolicy(Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder policy)
+    {
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin)) return false;
+                try
+                {
+                    var uri = new Uri(origin);
+                    return uri.Host == "localhost"
+                        || uri.Host == "127.0.0.1"
+                        || uri.Host.EndsWith("netlify.app", StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
+            })
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials());
+            .AllowCredentials();
+    }
+
+    options.AddDefaultPolicy(ConfigurePolicy);
+    options.AddPolicy("Frontend", ConfigurePolicy);
 });
 
 builder.Services.AddEndpointsApiExplorer();

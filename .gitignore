@@ -1,0 +1,36 @@
+# Переменные окружения и секреты (КРИТИЧНО)
+.env
+.env.local
+.env.*.local
+client_secret*.json
+
+# Сборка .NET (бинарники и кэш)
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+appsettings.Production.json
+
+# Зависимости и сборка Node.js / React
+node_modules/
+dist/
+dist-ssr/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Данные и тома Docker
+postgres_data/
+*.db
+*.sqlite
+
+# IDE и системные файлы
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store
