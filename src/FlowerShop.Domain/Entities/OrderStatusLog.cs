@@ -8,8 +8,9 @@ public class OrderStatusLog
     public int OrderId { get; set; }
     public OrderStatus OldStatus { get; set; }
     public OrderStatus NewStatus { get; set; }
-    public Guid ChangedByUserId { get; set; }
+    public Guid? ChangedByUserId { get; set; }
     public DateTime ChangedAt { get; set; }
+    public string? Comment { get; set; }
 
     public Order Order { get; set; } = null!;
 }

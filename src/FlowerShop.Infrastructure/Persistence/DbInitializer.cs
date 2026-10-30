@@ -168,11 +168,12 @@ CREATE TABLE IF NOT EXISTS ""OrderStatusLogs"" (
     ""OrderId"" integer NOT NULL,
     ""OldStatus"" integer NOT NULL,
     ""NewStatus"" integer NOT NULL,
-    ""ChangedByUserId"" uuid NOT NULL,
+    ""ChangedByUserId"" uuid,
     ""ChangedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+    ""Comment"" text,
     CONSTRAINT ""PK_OrderStatusLogs"" PRIMARY KEY (""Id""),
     CONSTRAINT ""FK_OrderStatusLogs_Orders_OrderId"" FOREIGN KEY (""OrderId"") REFERENCES ""Orders"" (""Id"") ON DELETE CASCADE,
-    CONSTRAINT ""FK_OrderStatusLogs_Users_ChangedByUserId"" FOREIGN KEY (""ChangedByUserId"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT,
+    CONSTRAINT ""FK_OrderStatusLogs_Users_ChangedByUserId"" FOREIGN KEY (""ChangedByUserId"") REFERENCES ""Users"" (""Id"") ON DELETE SET NULL,
     CONSTRAINT ""FK_OrderStatusLogs_OrderStatuses_Old"" FOREIGN KEY (""OldStatus"") REFERENCES ""OrderStatuses"" (""Id"") ON DELETE RESTRICT,
     CONSTRAINT ""FK_OrderStatusLogs_OrderStatuses_New"" FOREIGN KEY (""NewStatus"") REFERENCES ""OrderStatuses"" (""Id"") ON DELETE RESTRICT
 );
@@ -186,6 +187,8 @@ CREATE INDEX IF NOT EXISTS ""IX_OrderStatusLogs_ChangedByUserId"" ON ""OrderStat
         await connection.ExecuteAsync(cleanDdl);
 
         const string migrateColumnsSql = @"
+            ALTER TABLE ""OrderStatusLogs"" ADD COLUMN IF NOT EXISTS ""Comment"" text;
+            ALTER TABLE ""OrderStatusLogs"" ALTER COLUMN ""ChangedByUserId"" DROP NOT NULL;
             ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""RecipientName"" character varying(200);
             ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""RecipientPhone"" character varying(30);
             ALTER TABLE ""Orders"" ADD COLUMN IF NOT EXISTS ""DeliveryDate"" timestamp with time zone;
